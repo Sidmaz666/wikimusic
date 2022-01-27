@@ -56,7 +56,9 @@ get_page_links()
 		
 		case $first_menu_input in
 		  q )
-		    on_exit && exit
+		    on_exit
+       		(pkill -f wikimusic_mpv & > /dev/null 2>&1)
+		    exit
 		    ;;
 		esac
 

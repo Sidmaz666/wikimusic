@@ -12,7 +12,7 @@ A CLI Tool to Play Classical Music. The script scrapes from <a href="https://en.
 
 # Showcase
 
-<img src="https://github.com/Sidmaz666/lyrica/blob/main/assets/preview.gif" width="100%">
+<img src="https://github.com/Sidmaz666/wikimusic/blob/main/assets/preview.gif" width="100%">
 
 # Usage
 

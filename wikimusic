@@ -8,308 +8,363 @@ cyan='\033[1;36m'
 bold='\033[0;1m'
 underline='\033[0;4m'
 
-noinp=""
-
 tmpdir="/tmp/wikimusic"
 
 base_pages_url="https://en.wikipedia.org/wiki/Wikipedia:List_of_sound_files/"
 
 pages=('A' 'Baa%E2%80%93Bac' 'Bac%E2%80%93Baz' 'Bba%E2%80%93Bee' 'Bef%E2%80%93Bzz' 'C' 'D%E2%80%93E' 'F%E2%80%93G' 'H' 'I%E2%80%93L' 'M' 'N%E2%80%93Q' 'R' 'S' 'T%E2%80%93Z')
 
- page_selection_menu()
- {
-   clear
-   echo -e "$underline[Select Playlist Alphabetically]$nc"
-   num=1
-  for i in ${pages[@]}
-   do
-     echo -e "$nc==>$bold $num [$i]" | sed 's/%E2%80%93/-/g'
-     num="$(($num+1))"
-   done
-   echo -e "$nc\c"
-   [[ "$noinp" < 0 ]]  && read -r -p "==> " first_menu_input || first_menu_input="$((1+$RANDOM%15))"
- }
+		check_tmp()
+		{
+		[[ ! -d "$tmpdir" ]] && mkdir -p $tmpdir
+		}
 
-get_page_links()
-{
- page_selection_menu
+		tmp_rm()
+		{
+		  rm -Rf $tmpdir
+		}                
 
-  page_links="$(for i in ${pages[@]}
+		error()
+		{
+		  echo -e "$red"
+		  echo "$error_msg"
+		  echo -e "$nc"
+		}		
+
+		playlist_links()
+		{
+		for i in ${pages[@]}
 		do
 		  echo "$base_pages_url$i?action=raw"
 		done
-		)"
+	        }
 
-		loopall()
+               random_playlist_link()
+	        {
+		 check_tmp
+		 playlist_links > $tmpdir/r_sel_playlist
+		 cat $tmpdir/r_sel_playlist | \
+		   sort -R | \
+		   head -n$((1+$RANDOM%15)) | \
+		   tail -n1 
+		 tmp_rm
+	      }
+	      
+
+               selected_playlist_link()
+	        {
+		  [[ -z "$usr_inp" ]] && random_playlist_link && exit 0
+		  [[ "$usr_inp" -eq 0 ]] || [[ "$usr_inp" < 0 ]] && random_playlist_link && exit 0
+		  check_tmp
+
+		 playlist_links > $tmpdir/sel_playlist
+		 cat $tmpdir/sel_playlist | \
+		   head -n$usr_inp | \
+		   tail -n1 
+		 tmp_rm
+	      }
+
+	 	page_selection_menu()
+ 		{
+   		echo -e "$underline[Select Playlist]$nc"
+   		num=1
+  		for i in ${pages[@]}
+   		do
+		  echo -e "$num)$bold Playlist-($i) $nc" | sed 's/%E2%80%93/-/g'
+     		num="$(($num+1))"
+   		done
+   		echo -e "$nc\c"
+ 		}
+		
+
+		menu_input()
 		{
-		  for i in ${page_links}
-		  do
-		    echo "$i" | sed 's/^[ \t]*//g' 
-		  done  
+		  read -p "==>  " -r usr_inp
+		  selected_playlist_link || random_playlist_link
 		}
 
-		[[ -z "$page_links" ]] && echo "Unable to get Links" && exit
+		fetch_playlist()
+		{
+		check_tmp
+		curl -s "$url" --compressed | \
+    		grep -o "File:.*" | \
+    		sed "s/|namespace=0}}//g" | \
+    		sed 's/[[:space:]]/_/g'  | \
+    		sed -e 's/File_/File:/g' -e 's/.ogg_/.ogg/g' \
+    		-e 's_File:_https://en.wikipedia.org/wiki/File:_g' | \
+    		cat -n | \
+    		sed -e 's/^[ 0-9\t]*//g' | cat -n | sed 's/^[ \t]*//g' > $tmpdir/song_lists
+		}
 
-	        [[ -z "$first_menu_input" ]] && loopall > $tmpdir/all_links && \
-		  echo "==>  Randomly Selecting a Page!" && \
-		  (cat $tmpdir/all_links | sort -R | head -n$((1+$RANDOM%15)) | tail -n1 > $tmpdir/selected_link)
+		display_info()
+		{
 		
-		case $first_menu_input in
-		  q )
-		    on_exit
-       		(pkill -f wikimusic_mpv & > /dev/null 2>&1)
-		    exit
-		    ;;
-		esac
+		total_songs="$(cat $tmpdir/song_lists | wc -l)"
 
-		[[ ! -z "$first_menu_input" ]] && \
-            
-		  SEL="$(for i in ${page_links}
-		  do
-		    echo "$i" | sed "s/^[ \t]*//g"
-		  done
-		  )" && \
-		    (echo "$SEL" | head -n$first_menu_input | tail -n1 > $tmpdir/selected_link)
-      }
+		[[ -z "$total_songs" ]] && error_msg="Unable To Fetch Links!" && error && exit
+		
+		selected_page="$( echo "$url" | \
+		  sed 's@https://en.wikipedia.org/wiki/Wikipedia:List_of_sound_files/@@g' | \
+		  sed "s/?action=raw//g" | sed 's/%E2%80%93/-/g')"
 
-      [[ ! -d "$tmpdir" ]] && mkdir -p $tmpdir
-      
-song_lists()
-{
-  [[ ! -f "$tmpdir/selected_link" ]] && exit
-  clear
+		echo "Total [$total_songs] Songs In Playlist-[$selected_page]"
 
-  echo "==> Getting the list of Songs!"
-  
-  curl -s "$(cat $tmpdir/selected_link)" --compressed | \
-    grep -o "File:.*" | \
-    sed "s/|namespace=0}}//g" | \
-    sed 's/[[:space:]]/_/g'  | \
-    sed -e 's/File_/File:/g' -e 's/.ogg_/.ogg/g' \
-    -e 's_File:_https://en.wikipedia.org/wiki/File:_g' | \
-    cat -n | \
-    sed -e 's/^[ 0-9\t]*//g' | cat -n | sed 's/^[ \t]*//g' > $tmpdir/song_lists
-}
-logging(){
-  mkdir -p $HOME/.cache/wikimusic
-  echo "$selected" >> $HOME/.cache/wikimusic/songs_history
-  echo "$selected_title" >> $HOME/.cache/wikimusic/songs_titles
-  sed -i '/^[[:space:]]*$/d' $HOME/.cache/wikimusic/songs_titles
+		[[ ! -z "$selected_link" ]] && echo "URL : $selected_link"	
+	      }
 
-}
-on_exit()
-{
-  echo -e "$bold$red\c"
-  echo -e "==> Exiting"
-  echo -e "$nc\c"
-  rm -Rf $tmpdir
-}
-ask(){
-
-  [[ "$arti" > 0 ]] && judi=""
-
-      total_songs="$(cat $tmpdir/song_lists | wc -l)"
-      selected_page="$(cat $tmpdir/selected_link | sed 's@https://en.wikipedia.org/wiki/Wikipedia:List_of_sound_files/@@g' | sed "s/?action=raw//g" | sed 's/%E2%80%93/-/g')"
-  
-  BANNER=""
-  URL_BANNER="URL : $(cat $tmpdir/selected_link)"
-  
-  while :
-  do
-  clear
-  echo -e "$bold$cyan$BANNER$nc" 
-  echo -e "$bold[Selected]-([$selected_page]/$total_songs)$nc"
-  echo -e "$underline$URL_BANNER$nc"
-  echo -e "\n==> a [Play Randomly Automatically]"
-  echo "==> * [Play Random]"
-  echo "==> s [Select Manually]"
-  echo "==> m [Main Menu]"
-  echo "==> q [Quit]"
-  
-  [[ -z "$judi" ]] && read -n1 -s asking
-  [[ ! -z "$judi" ]] && asking="a"
-  case $asking in
-     s)
-       (cat $tmpdir/song_lists | sed 's_https://en.wikipedia.org/wiki/File:__g' | sed -e 's/.ogg//g' -e 's/^_//g' -e 's/_/ /g' | $( check_bat ))
-       read -r -p "==> " number
-    
-       case $number in
-	 q)
-	   on_exit && exit
-	   ;;
-	 *)
-	   [[ -z "$number" ]] && number="$((1+$RANDOM%$total_songs))" 
-	   ;;
-       esac
-
-       (pkill -f wikimusic_mpv & > /dev/null 2>&1)
-       selected="$(head -n$number $tmpdir/song_lists | tail -n1 | awk '{print $2}')"
-       selected_title="$(head -n$number $tmpdir/song_lists | tail -n1 | awk '{print $2}' | \
-	 sed 's_https://en.wikipedia.org/wiki/File:__g' | \
-	 sed -e 's/.ogg//g' -e 's/^_//g' -e 's/_/ /g' )"
-		echo "==> Playing [$selected_title]"
-		URL_BANNER="URL: $selected"
-       (nohup mpv --really-quiet --title="wikimusic_mpv" $selected & > /dev/null 2>&1 && disown > /dev/null 2>&1) > /dev/null 2>&1  
-       BANNER="Now Playing [$selected_title]"
-       logging
-      ;;
-      q)
-       (pkill -f wikimusic_mpv & > /dev/null 2>&1)
-      on_exit && exit
-      ;;
-    a)
-       (pkill -f wikimusic_mpv & > /dev/null 2>&1)
-   while true
-   do
-       noinp=1
-       get_page_links
-       song_lists
-      total_songs="$(cat $tmpdir/song_lists | wc -l)"
-      selected_page="$(cat $tmpdir/selected_link | sed 's@https://en.wikipedia.org/wiki/Wikipedia:List_of_sound_files/@@g' | \
-	sed "s/?action=raw//g" | \
-	sed 's/%E2%80%93/-/g')"
-       (pkill -f wikimusic_mpv & > /dev/null 2>&1)
-      random_no="$(echo "$((1+$RANDOM%$total_songs))")"
-      selected="$(head -n$random_no $tmpdir/song_lists | tail -n1 | awk '{print $2}')"
-       selected_title="$(head -n$random_no $tmpdir/song_lists | tail -n1 | awk '{print $2}' | \
-	 sed 's_https://en.wikipedia.org/wiki/File:__g' | \
-	 sed -e 's/.ogg//g' -e 's/^_//g' -e 's/_/ /g' )"
-       		clear
-		echo -e "==>$cyan Playing Randomly [$selected_title]$nc"
-		URL_BANNER="URL: $selected"
-  		echo -e "$URL_BANNER\n"
-		echo -e "==> * [Change]"
-		echo -e "==> q [Exit]"
+		display_options()
+		{
+		display_info
+		echo "==> a [Randomly Play Loop]"
+		echo "==> c [Play a random song from the selected Playlist-($selected_page)]"
+		echo "==> r [Play a song randomly from any playlist]"
+		echo "==> s [Select Manually]"
 		echo "==> m [Main Menu]"
-       (nohup mpv --really-quiet --title="wikimusic_mpv" $selected & > /dev/null 2>&1 && disown > /dev/null 2>&1) > /dev/null 2>&1  
-       BANNER="Now Playing [$selected_title]"
-       logging
-       read -n1 -s keypress
-       [[ "$keypress" = "q" ]] && (pkill -f wikimusic_mpv & > /dev/null 2>&1) && on_exit && logging && exit
-       [[ "$keypress" = "m" ]] && noinp="" && judi="" && arti=1 && main_funda
-     done
-       ;;
-    m)
-      arti=1
-      judi=""
-      noinp=""
-      main_funda
-      ;;
-    *)
-       judi=""
-       noinp=1
-       get_page_links
-       song_lists
-      total_songs="$(cat $tmpdir/song_lists | wc -l)"
-      selected_page="$(cat $tmpdir/selected_link | sed 's@https://en.wikipedia.org/wiki/Wikipedia:List_of_sound_files/@@g' | \
-	sed "s/?action=raw//g" | \
-	sed 's/%E2%80%93/-/g')"
-       (pkill -f wikimusic_mpv & > /dev/null 2>&1)
-      random_no="$(echo "$((1+$RANDOM%$total_songs))")"
-      selected="$(head -n$random_no $tmpdir/song_lists | tail -n1 | awk '{print $2}')"
-       selected_title="$(head -n$random_no $tmpdir/song_lists | tail -n1 | awk '{print $2}' | \
-	 sed 's_https://en.wikipedia.org/wiki/File:__g' | \
-	 sed -e 's/.ogg//g' -e 's/^_//g' -e 's/_/ /g' )"
-		echo "==> Playing [$selected_title]"
-		URL_BANNER="URL: $selected"
-       (nohup mpv --really-quiet --title="wikimusic_mpv" $selected & > /dev/null 2>&1 && disown > /dev/null 2>&1) > /dev/null 2>&1  
-       BANNER="Now Playing Random [$selected_title]"
-       logging
-    ;;
-esac
-  done
-}
+		echo "==> q [Quit]"
+		}
 
-check_bat(){
-	[[ -f "/usr/bin/bat" ]] && CAT="bat  --force-colorization --file-name=Music-List" || CAT="less"
-	echo $CAT
-}
 
-main_funda()
-{
-     get_page_links
-      song_lists
-     ask
- }
-
- show_history()
- {
-   while true 
-   do
-     	[[ ! -f "$HOME/.cache/wikimusic/songs_history" ]] && echo "No History Yet!" && exit
-     	[[ ! -f "$HOME/.cache/wikimusic/songs_titles" ]] && echo "No History Yet!" && exit
-     clear
-     echo -e  "$bold$cyan$BANNER$nc"
-     echo -e "\n$underline[Last-History]$nc\n"
-     
-     g_tot="$((1+55%$(wc -l $HOME/.cache/wikimusic/songs_titles | awk '{print $1}')))"
-     
-     cat -n $HOME/.cache/wikimusic/songs_titles | tail -n$g_tot
-
-     echo -e "\n==> m [Main Menu]"
-     echo "==> s [Show-List]"
-     echo "==> q [Quit]"
-	
-       
-       read -n1 -s number
-    
-       case $number in
-	 q)
-           (pkill -f wikimusic_mpv & > /dev/null 2>&1)
-	   on_exit && exit
-	   ;;
-        m)
-	judi="" && noinp="" && arti=1 && main_funda
-	   ;;
-	 s)
-	   
-	   (cat $HOME/.cache/wikimusic/songs_titles | sed 's_https://en.wikipedia.org/wiki/File:__g' | sed -e 's/.ogg//g' -e 's/^_//g' -e 's/_/ /g' | $( check_bat ) )
-	   read -p "==> " playin_from_his
-
-	   [[ "$playin_from_his" = "q" ]] && on_exit && (pkill -f wikimusic_mpv & > /dev/null 2>&1) && break
-	   
-	   [[ -z "$playin_from_his" ]] && \
-	     echo "==> [Playing Random From History]" && \
-	     playin_from_his="$((1+$RANDOM%$(wc -l $HOME/.cache/wikimusic/songs_titles \
-	     | awk '{print $1}')))"
-
-       (pkill -f wikimusic_mpv & > /dev/null 2>&1)
-
-       selected="$(cat $HOME/.cache/wikimusic/songs_history | head -n$playin_from_his | tail -n1 )"
-       
-       selected_title="$(cat $HOME/.cache/wikimusic/songs_titles | head -n$playin_from_his  | tail -n1 | \
-	 sed 's_https://en.wikipedia.org/wiki/File:__g' | \
-	 sed -e 's/.ogg//g' -e 's/^_//g' -e 's/_/ /g' )"
-		echo "==> Playing [$selected_title]"
-		URL_BANNER="URL: $selected"
-       
-		(nohup mpv --really-quiet --title="wikimusic_mpv" $selected & > /dev/null 2>&1 && disown > /dev/null 2>&1) > /dev/null 2>&1  
-       
-		BANNER="Now Playing [$selected_title]"
-      
-		logging
-       ;;
-	 *)
-	
-	   [[ -z "$number" ]] && number="$((1+$RANDOM%$(wc -l $HOME/.cache/wikimusic/songs_titles | awk '{print $1}')))"
-
-       (pkill -f wikimusic_mpv & > /dev/null 2>&1)
-       selected="$(cat  $HOME/.cache/wikimusic/songs_history | head -n$number | tail -n1 )"
-       selected_title="$(cat  $HOME/.cache/wikimusic/songs_titles | head -n$number  | tail -n1 | \
-	 sed 's_https://en.wikipedia.org/wiki/File:__g' | \
-	 sed -e 's/.ogg//g' -e 's/^_//g' -e 's/_/ /g' )"
-		echo "==> Playing [$selected_title]"
-		URL_BANNER="URL: $selected"
-       (nohup mpv --really-quiet --title="wikimusic_mpv" $selected & > /dev/null 2>&1 && disown > /dev/null 2>&1) > /dev/null 2>&1  
-       BANNER="Now Playing [$selected_title]"
-       logging
-	   ;;
-       esac
-
-   done
+		check_bat()
+		{
+		[[ -f "/usr/bin/bat" ]] && CAT="bat  --force-colorization --file-name=Music-List" || CAT="less"
+		echo $CAT
+		}
 		
- }
 
+		create_log(){
+		  mkdir -p $HOME/.cache/wikimusic
+		  echo "$selected_link" >> $HOME/.cache/wikimusic/songs_history
+		  echo "$(Selectedtitle)" >> $HOME/.cache/wikimusic/songs_titles
+		  sed -i '/^[[:space:]]*$/d' $HOME/.cache/wikimusic/songs_titles
+		}
+
+		Selectedtitle()
+		{
+		   selected_title="$(head -n$select_manual $tmpdir/song_lists | tail -n1 | awk '{print $2}' | \
+		   sed 's_https://en.wikipedia.org/wiki/File:__g' | \
+		   sed -e 's/.ogg//g' -e 's/^_//g' -e 's/_/ /g' )"
+		   echo "$selected_title"
+		 }
+
+		manual_selection(){
+		      (cat $tmpdir/song_lists | \
+			sed 's_https://en.wikipedia.org/wiki/File:__g' | \
+			sed -e 's/.ogg//g' -e 's/^_//g' -e 's/_/ /g' | \
+			$( check_bat ))
+		   
+		      read -r -p "==> " select_manual
+
+		          case $select_manual in
+		     	 q)
+		          error_msg="Exiting!"
+		          error
+		     	  exit
+			  ;;
+			"")
+			ifr="-Random"
+		       (pkill -f wikimusic_mpv & > /dev/null 2>&1)
+		       rand="$((1+$RANDOM%$(wc -l $tmpdir/song_lists | awk '{print $1}')))" 
+		       selected_link="$(head -n$rand $tmpdir/song_lists | tail -n1 | awk '{print $2}')"
+		       select_manual="$rand" 
+		       echo "Playing$ifr [$(Selectedtitle)]"
+		      (nohup mpv --really-quiet --title="wikimusic_mpv" "$selected_link" & > /dev/null 2>&1 && disown > /dev/null 2>&1) > /dev/null 2>&1  
+		      create_log
+		      ;;
+			*)
+			  if [ "$select_manual" -gt "$(wc -l $tmpdir/song_lists | awk '{print $1}')" ];then
+		       rand="$((1+$RANDOM%$(wc -l $tmpdir/song_lists | awk '{print $1}')))" 
+		       selected_link="$(head -n$rand $tmpdir/song_lists | tail -n1 | awk '{print $2}')"
+		       select_manual="$rand" 
+		       ifr="-Randomly"
+			  fi
+			  selected_link="$(head -n$select_manual $tmpdir/song_lists | tail -n1 | awk '{print $2}')"
+		       (pkill -f wikimusic_mpv & > /dev/null 2>&1)
+		       echo "Playing$ifr [$(Selectedtitle)]"
+		      (nohup mpv --really-quiet --title="wikimusic_mpv" "$selected_link" & > /dev/null 2>&1 && disown > /dev/null 2>&1) > /dev/null 2>&1  
+		       create_log	  
+		      ;;
+		      esac
+			
+		        }
+
+
+		
+		song_list_menu(){
+			while true
+			do
+			display_options
+		  	read -n1 -s options
+		  
+		  case $options in
+		    r)
+		     url=$( random_playlist_link )
+		     fetch_playlist
+		      rand="$((1+$RANDOM%$(wc -l $tmpdir/song_lists | awk '{print $1}')))" 
+		      select_manual="$rand"
+		      selected_link="$(head -n$rand $tmpdir/song_lists | tail -n1 | awk '{print $2}')"
+		     (pkill -f wikimusic_mpv & > /dev/null 2>&1)
+		     echo "Selected Randomly : Playing [$(Selectedtitle)]"
+		     (nohup mpv --really-quiet --title="wikimusic_mpv" "$selected_link" & > /dev/null 2>&1 && disown > /dev/null 2>&1) > /dev/null 2>&1  
+		     create_log 
+		     song_list_menu
+		      ;;
+		    a)
+		      echo "==> q [Change Current Song]"
+		      echo "==> qq [Exit From Loop]"
+		      echo "==> qqq [Exit]"
+		      echo "==> qm [Main Menu]"
+		      (pkill -f wikimusic_mpv & > /dev/null 2>&1)
+		      while true
+		      do
+		     url=$( random_playlist_link )
+		     fetch_playlist
+		      rand="$((1+$RANDOM%$(wc -l $tmpdir/song_lists | awk '{print $1}')))" 
+		      select_manual="$rand"
+		      selected_link="$(head -n$rand $tmpdir/song_lists | tail -n1 | awk '{print $2}')"
+		     select_manual="$((1+$RANDOM%$total_songs))"
+		     display_info
+		     echo "Selected Randomly : Playing [$(Selectedtitle)] From Playlist [$selected_page]"
+		     mpv --really-quiet --aid=2 --title="wikimusic_mpv" "$selected_link"
+		     create_log
+		     read -t 0.25 -n1 -s keypress
+
+		     case $keypress in
+		       q)
+			 break
+			 ;;
+			 m)
+			 initial_menu
+			;;
+		     esac
+
+		      done
+		      ;;
+		    s)
+		      manual_selection
+		      song_list_menu
+		     ;;
+                    c)
+		      rand="$((1+$RANDOM%$(wc -l $tmpdir/song_lists | awk '{print $1}')))" 
+		      select_manual="$rand"
+		      selected_link="$(head -n$rand $tmpdir/song_lists | tail -n1 | awk '{print $2}')"
+		     (pkill -f wikimusic_mpv & > /dev/null 2>&1)
+		     echo "Selected Random : Playing [$(Selectedtitle)] From Playlist [$selected_page]"
+		     (nohup mpv --really-quiet --title="wikimusic_mpv" "$selected_link" & > /dev/null 2>&1 && disown > /dev/null 2>&1) > /dev/null 2>&1  
+		     create_log 
+		     song_list_menu
+		      ;;
+		    q)
+		     (pkill -f wikimusic_mpv & > /dev/null 2>&1)
+		      error_msg="Exiting!"
+		      error
+		      tmp_rm
+		      exit
+		      ;;
+		    m)
+		      initial_menu
+		      ;;
+		    *)
+		      echo "[$options] : No Such Option Available!"
+		      song_list_menu
+		      ;;
+		  esac
+
+		done
+		}
+
+		initial_menu()
+		{
+		page_selection_menu
+		url=$(menu_input)
+		fetch_playlist
+		selected_link=""
+		song_list_menu
+	      }
+
+
+		 show_history()
+		 {
+		   while true 
+		   do
+		     	[[ ! -f "$HOME/.cache/wikimusic/songs_history" ]] && echo "No History Yet!" && exit
+		     	[[ ! -f "$HOME/.cache/wikimusic/songs_titles" ]] && echo "No History Yet!" && exit
+		     clear
+		     echo -e  "$bold$cyan$BANNER$nc"
+		     echo -e "\n$underline[Last-History]$nc\n"
+		     
+		    cat -n $HOME/.cache/wikimusic/songs_titles | tail -7
+		
+		     echo -e "\n==> m [Main Menu]"
+		     echo "==> s [Show-List]"
+		     echo "==> q [Quit]"
+			
+		       
+		       read -n1 -s number
+		    
+			   [[ -z "$number" ]] && number="$((1+$RANDOM%$(wc -l $HOME/.cache/wikimusic/songs_titles | awk '{print $1}')))"
+		       case $number in
+			 q)
+				     (pkill -f wikimusic_mpv & > /dev/null 2>&1)
+				      error_msg="Exiting!"
+				      error
+			   	      exit
+			   ;;
+		         m)
+					initial_menu
+					break
+					exit 0
+			   ;;
+			 s)
+			   
+			   (cat $HOME/.cache/wikimusic/songs_titles | sed 's_https://en.wikipedia.org/wiki/File:__g' | sed -e 's/.ogg//g' -e 's/^_//g' -e 's/_/ /g' | $( check_bat ) )
+			   read -p "==> " playin_from_his
+		
+			   [[ "$playin_from_his" = "q" ]] && \
+			     (pkill -f wikimusic_mpv & > /dev/null 2>&1) && \
+				      error_msg="Exiting!" && \
+				      error && break && exit 0
+			   
+			   [[ -z "$playin_from_his" ]] && \
+			     echo "==> [Playing Random From History]" && \
+			     playin_from_his="$((1+$RANDOM%$(wc -l $HOME/.cache/wikimusic/songs_titles \
+			     | awk '{print $1}')))"
+		
+		       (pkill -f wikimusic_mpv & > /dev/null 2>&1)
+		
+		       selected="$(cat $HOME/.cache/wikimusic/songs_history | head -n$playin_from_his | tail -n1 )"
+		       
+		       selected_title="$(cat $HOME/.cache/wikimusic/songs_titles | head -n$playin_from_his  | tail -n1 | \
+			 sed 's_https://en.wikipedia.org/wiki/File:__g' | \
+			 sed -e 's/.ogg//g' -e 's/^_//g' -e 's/_/ /g' )"
+				echo "==> Playing [$selected_title]"
+				URL_BANNER="URL: $selected"
+		       
+				(nohup mpv --really-quiet --title="wikimusic_mpv" $selected & > /dev/null 2>&1 && disown > /dev/null 2>&1) > /dev/null 2>&1  
+		       
+				BANNER="Now Playing [$selected_title]"
+		      
+				create_log
+		       ;;
+			 *)
+			
+		
+		       (pkill -f wikimusic_mpv & > /dev/null 2>&1)
+		       selected="$(cat  $HOME/.cache/wikimusic/songs_history | head -n$number | tail -n1 )"
+		       selected_title="$(cat  $HOME/.cache/wikimusic/songs_titles | head -n$number  | tail -n1 | \
+			 sed 's_https://en.wikipedia.org/wiki/File:__g' | \
+			 sed -e 's/.ogg//g' -e 's/^_//g' -e 's/_/ /g' )"
+				echo "==> Playing [$selected_title]"
+				URL_BANNER="URL: $selected"
+		       (nohup mpv --really-quiet --title="wikimusic_mpv" $selected & > /dev/null 2>&1 && disown > /dev/null 2>&1) > /dev/null 2>&1  
+		       BANNER="Now Playing [$selected_title]"
+		       create_log
+			   ;;
+		       esac
+		   done
+		 }
+		
+
+ 
  show_help()
  {
 cat<<END 
@@ -333,8 +388,44 @@ cat<<END
 END
 }
 
-[[ -z "$1" ]] && main_funda
-[[ "$1" = "-r" ]] && noinp=1 && judi="$1" && get_page_links && song_lists && ask
+	
+		when_you_dont_know_coding(){
+		      echo "==> q [Change Current Song]"
+		      echo "==> qq [Exit]"
+		      echo "==> qm [Main Menu]"
+		      (pkill -f wikimusic_mpv & > /dev/null 2>&1)
+		      while true
+		      do
+		     url=$( random_playlist_link )
+		     fetch_playlist
+		      rand="$((1+$RANDOM%$(wc -l $tmpdir/song_lists | awk '{print $1}')))" 
+		      select_manual="$rand"
+		      selected_link="$(head -n$rand $tmpdir/song_lists | tail -n1 | awk '{print $2}')"
+		      select_manual="$((1+$RANDOM%$(wc -l $tmpdir/song_lists | awk '{print $1}')))"
+		     display_info
+		     echo "Selected Randomly : Playing [$(Selectedtitle)] From Playlist [$selected_page]"
+		     mpv --really-quiet --aid=2 --title="wikimusic_mpv" "$selected_link"
+		     create_log
+		     read -t 0.30 -n1 -s keypress
+
+		     case $keypress in
+		q)
+		     (pkill -f wikimusic_mpv & > /dev/null 2>&1)
+		      error_msg="Exiting!"
+		      error
+		      break
+			 ;;
+		 m)
+			 initial_menu
+			 break && exit 0
+			;;
+		     esac
+
+		      done
+		}
+
+[[ -z "$1" ]] && initial_menu
+[[ "$1" = "-r" ]] && when_you_dont_know_coding
 [[ "$1" = "-H" ]] && show_history
 [[ "$1" = "-h" ]] || [[ "$1" = "--help" ]] && show_help
 [[ "$1" = "-v" ]] || [[ "$1" = "--version" ]] && echo " $prog : v0"

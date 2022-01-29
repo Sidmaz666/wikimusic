@@ -8,6 +8,8 @@ A CLI Tool to Play Classical Music. The script scrapes from <a href="https://en.
 
 # Installation
 
+       sudo curl -s https://raw.githubusercontent.com/Sidmaz666/wikimusic/main/wikimusic -O > /usr/bin
+ 
        sudo cp wikimusic /usr/bin
 
 # Showcase

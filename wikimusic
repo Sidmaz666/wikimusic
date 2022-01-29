@@ -107,7 +107,8 @@ pages=('A' 'Baa%E2%80%93Bac' 'Bac%E2%80%93Baz' 'Bba%E2%80%93Bee' 'Bef%E2%80%93Bz
 		  sed 's@https://en.wikipedia.org/wiki/Wikipedia:List_of_sound_files/@@g' | \
 		  sed "s/?action=raw//g" | sed 's/%E2%80%93/-/g')"
 
-		echo "Total [$total_songs] Songs In Playlist-[$selected_page]"
+		echo -e "$red\c"
+		echo -e "Total [$total_songs] Songs In Playlist-[$selected_page]$nc"
 
 		[[ ! -z "$selected_link" ]] && echo "URL : $selected_link"	
 	      }
@@ -166,7 +167,8 @@ pages=('A' 'Baa%E2%80%93Bac' 'Bac%E2%80%93Baz' 'Bba%E2%80%93Bee' 'Bef%E2%80%93Bz
 		       rand="$((1+$RANDOM%$(wc -l $tmpdir/song_lists | awk '{print $1}')))" 
 		       selected_link="$(head -n$rand $tmpdir/song_lists | tail -n1 | awk '{print $2}')"
 		       select_manual="$rand" 
-		       echo "Playing$ifr [$(Selectedtitle)]"
+		       echo -e "$cyan\c"
+		       echo -e "Playing$ifr [$(Selectedtitle)]$nc"
 		      (nohup mpv --really-quiet --title="wikimusic_mpv" "$selected_link" & > /dev/null 2>&1 && disown > /dev/null 2>&1) > /dev/null 2>&1  
 		      create_log
 		      ;;
@@ -179,7 +181,8 @@ pages=('A' 'Baa%E2%80%93Bac' 'Bac%E2%80%93Baz' 'Bba%E2%80%93Bee' 'Bef%E2%80%93Bz
 			  fi
 			  selected_link="$(head -n$select_manual $tmpdir/song_lists | tail -n1 | awk '{print $2}')"
 		       (pkill -f wikimusic_mpv & > /dev/null 2>&1)
-		       echo "Playing$ifr [$(Selectedtitle)]"
+		       echo -e "$cyan\c"
+		       echo -e "Playing$ifr [$(Selectedtitle)]$nc"
 		      (nohup mpv --really-quiet --title="wikimusic_mpv" "$selected_link" & > /dev/null 2>&1 && disown > /dev/null 2>&1) > /dev/null 2>&1  
 		       create_log	  
 		      ;;
@@ -203,7 +206,8 @@ pages=('A' 'Baa%E2%80%93Bac' 'Bac%E2%80%93Baz' 'Bba%E2%80%93Bee' 'Bef%E2%80%93Bz
 		      select_manual="$rand"
 		      selected_link="$(head -n$rand $tmpdir/song_lists | tail -n1 | awk '{print $2}')"
 		     (pkill -f wikimusic_mpv & > /dev/null 2>&1)
-		     echo "Selected Randomly : Playing [$(Selectedtitle)]"
+		     echo -e "$cyan\c"
+		     echo -e "Selected Randomly : Playing [$(Selectedtitle)]$nc"
 		     (nohup mpv --really-quiet --title="wikimusic_mpv" "$selected_link" & > /dev/null 2>&1 && disown > /dev/null 2>&1) > /dev/null 2>&1  
 		     create_log 
 		     song_list_menu
@@ -223,7 +227,8 @@ pages=('A' 'Baa%E2%80%93Bac' 'Bac%E2%80%93Baz' 'Bba%E2%80%93Bee' 'Bef%E2%80%93Bz
 		      selected_link="$(head -n$rand $tmpdir/song_lists | tail -n1 | awk '{print $2}')"
 		     select_manual="$((1+$RANDOM%$total_songs))"
 		     display_info
-		     echo "Selected Randomly : Playing [$(Selectedtitle)] From Playlist [$selected_page]"
+		     echo -e "$cyan\c"
+		     echo -e "Selected Randomly : Playing [$(Selectedtitle)] From Playlist [$selected_page]$nc"
 		     mpv --really-quiet --aid=2 --title="wikimusic_mpv" "$selected_link"
 		     create_log
 		     read -t 0.25 -n1 -s keypress
@@ -248,7 +253,8 @@ pages=('A' 'Baa%E2%80%93Bac' 'Bac%E2%80%93Baz' 'Bba%E2%80%93Bee' 'Bef%E2%80%93Bz
 		      select_manual="$rand"
 		      selected_link="$(head -n$rand $tmpdir/song_lists | tail -n1 | awk '{print $2}')"
 		     (pkill -f wikimusic_mpv & > /dev/null 2>&1)
-		     echo "Selected Random : Playing [$(Selectedtitle)] From Playlist [$selected_page]"
+		     echo -e "$cyan\c"
+		     echo -e "Selected Random : Playing [$(Selectedtitle)] From Playlist [$selected_page]$nc"
 		     (nohup mpv --really-quiet --title="wikimusic_mpv" "$selected_link" & > /dev/null 2>&1 && disown > /dev/null 2>&1) > /dev/null 2>&1  
 		     create_log 
 		     song_list_menu
@@ -403,7 +409,8 @@ END
 		      selected_link="$(head -n$rand $tmpdir/song_lists | tail -n1 | awk '{print $2}')"
 		      select_manual="$((1+$RANDOM%$(wc -l $tmpdir/song_lists | awk '{print $1}')))"
 		     display_info
-		     echo "Selected Randomly : Playing [$(Selectedtitle)] From Playlist [$selected_page]"
+		     echo -e "$cyan\c"
+		     echo -e "Selected Randomly : Playing [$(Selectedtitle)] From Playlist [$selected_page]$nc"
 		     mpv --really-quiet --aid=2 --title="wikimusic_mpv" "$selected_link"
 		     create_log
 		     read -t 0.30 -n1 -s keypress

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-prog="$(echo "$0" | sed 's_./__g')"
+prog="$(echo "$0" | sed -e 's_./__g' -e 's/\/usbi//g' )"
 
 red='\033[0;31m'
 nc='\033[0m' 
